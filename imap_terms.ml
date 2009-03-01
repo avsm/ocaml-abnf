@@ -1,3 +1,6 @@
+(** Copyright (c) 2008,2009 Anil Madhavapeddy <anil@recoil.org>
+ ** See the COPYING file included in this distribution for licensing details *)
+
 open Printf
 
 exception Parse_error of string
