@@ -1,0 +1,49 @@
+.rule {
+    font-family: courier;
+    font-style: bold;
+    color: #CC3333;
+    font-size: 80%;
+}
+
+.rule_name {
+   font-family: courier;
+   font-style: bold;
+   text-align: left;
+   background-color: #CCCCEE;
+}
+
+.rule_def {
+   text-align: left;
+   background-color: #DDDDDD;
+   font-style: courier;
+}
+    
+.string {
+    font-family: courier;
+    color: #005500;
+    font-size: 80%;
+}
+
+.operator {
+    font-family: courier;
+    font-size: 80%;
+    font-style: bold;
+}
+
+code {
+    font-size: 100%;
+}
+
+.hexrange {
+    font-family: courier;
+    color: #333333;
+    font-style: italic;
+    font-size: 90%;
+    font-variant: small-caps;
+}
+
+.anyexcept {
+    font-family: courier;
+    font-size: 90%;
+    color: #000099;
+}
