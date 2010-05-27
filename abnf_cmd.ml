@@ -11,11 +11,14 @@ type mode =
     |Sexpr
     |Edges
     |Terminals
+    |RDParse
     
 let _ =
     let files = ref [] in
     let output_file = ref "output.html" in
     let mode = ref Text in
+    let file_to_parse = ref "" in
+    let starting_nonterminal = ref "" in 
     let parse = [
         "-dot", Arg.Unit (fun () -> mode := Dot), "Output in DOT format";
         "-tsort", Arg.Unit (fun () -> mode := Tsort), "Output topological sort of parse nodes";
@@ -24,6 +27,7 @@ let _ =
         "-html", Arg.Unit (fun () -> mode := HTML), "Output ABNF in HTML format";
         "-sexpr", Arg.Unit (fun () -> mode := Sexpr), "Output ABNF in S-expression format";
         "-terminals", Arg.Unit (fun () -> mode := Terminals), "Output all terminals used";
+	"-rdparse", Arg.Tuple([Arg.Unit (fun () -> mode := RDParse); Arg.Set_string file_to_parse; Arg.Set_string starting_nonterminal]), "Recursive-descent parse a given file with a given starting nonterminal";
         "-o", Arg.Set_string output_file, "Output file";
     ] in
     let usagestr = "Usage: abnf <options> input-file" in
@@ -75,6 +79,8 @@ let _ =
                 printf "</td><td class=\"rule_def\">%s</td></tr>\n" (Abnf_ops.HTML.html_of_rule rule_def);
             ) tsorted_nodes;
             printf "</body></html>"
+	|RDParse ->
+	   Abnf_recursive_descent.parse_file_with_grammar !file_to_parse all_rules !starting_nonterminal
         end;
         eprintf "Done parsing file: %s\n" file;
         ()

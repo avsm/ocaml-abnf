@@ -5,7 +5,7 @@ export ANNOTATE
 LLVM ?= /Users/avsm/llvm
 
 define PROJ_abnf
-  SOURCES=abnf_syntaxtree.ml abnf_rules.ml abnf_ops.ml abnf_location.ml abnf_parser.mli abnf_lexer.ml abnf_parser.ml abnf_cmd.ml
+  SOURCES=abnf_syntaxtree.ml abnf_rules.ml abnf_ops.ml abnf_location.ml abnf_parser.mli abnf_lexer.ml abnf_parser.ml abnf_recursive_descent.ml abnf_cmd.ml
   RESULT=abnf_cmd
   LIBS=str
   TRASH=abnf_lexer.ml abnf_parser.ml abnf_lexer.mli abnf_parser.mli
