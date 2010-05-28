@@ -34,6 +34,15 @@ type rule =
     | S_hex_range of int * int
     | S_any_except of rule * rule (* any rule except rule *)
 
+type derivation = 
+  | D_terminal of terminal * string
+  | D_hex_range of int * int * string
+  | D_string of string
+  | D_concat of derivation * derivation
+  | D_reference of string * derivation
+  | D_repetition of derivation list
+(* No any_except or alt, of which all branches are not represented, or seq/concat differentiation *)
+
 (* Each line in an ABNF file is defined here *)
 type rule_definition = {
     s_name: string;

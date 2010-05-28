@@ -80,7 +80,11 @@ let _ =
             ) tsorted_nodes;
             printf "</body></html>"
 	|RDParse ->
-	   Abnf_recursive_descent.parse_file_with_grammar !file_to_parse all_rules !starting_nonterminal
+	   Abnf_ops.Text.prettyprint_derivation 0 (Abnf_recursive_descent.parse_file_with_grammar 
+						     !file_to_parse 
+						     all_rules !
+						     starting_nonterminal
+						  )
         end;
         eprintf "Done parsing file: %s\n" file;
         ()

@@ -91,6 +91,22 @@ module Text = struct
             in register_terminal rule
         ) rds;
         Hashtbl.fold (fun k _ a -> (string_of_terminal k) :: a) terms []
+
+    let rec prettyprint_derivation offset = function
+      | D_terminal (term, str) -> 
+	  printf "%s%s: %S\n" (String.make offset ' ') (string_of_terminal term) str
+      | D_string (str) -> 
+	  printf "%s\"%s\"\n" (String.make offset ' ') str
+      | D_hex_range (low, high, str) -> 
+	  printf "%s%x-%x: %S\n" (String.make offset ' ') low high str
+      | D_concat (d1, d2) -> 
+	  prettyprint_derivation offset d1; 
+	  prettyprint_derivation offset d2
+      | D_reference (nt_name, d) -> 
+	  printf "%s%s->\n" (String.make offset ' ') nt_name;
+	  prettyprint_derivation (offset + 2) d
+      | D_repetition (ds) ->
+	  List.iter (prettyprint_derivation offset) ds
             
 end
 
