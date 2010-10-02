@@ -5,9 +5,11 @@
 open Printf
 
 type terminal =
-    | ALPHA
-    | DIGIT
-    | HEXDIG
+    | ALPHA     (* [A-Z][a-z] *)
+    | UPALPHA   (* [A-Z] *)
+    | LOALPHA   (* [a-z] *)
+    | DIGIT     (* [0-9] *)
+    | HEXDIGIT  (* [0-9a-fA-F] *)
     | DQUOTE
     | SP
     | HTAB
@@ -16,11 +18,12 @@ type terminal =
     | VCHAR
     | CHAR
     | OCTET
-    | CTL
-    | CR
-    | LF
-    | CRLF
-    | BIT
+    | CTL       (* <any US-ASCII control character (0-31) and DEL (127)> *)
+    | CR        (* <US-ASCII CR, carriage return (13)> *)
+    | LF        (* <US-ASCII LF, linefeed (10)> *)
+    | CRLF      (* CR LF *)
+    | BIT 
+    | TEXT      (* <any OCTET except CTLs, but including LWS> *)
 
 (* Type of the rules syntax tree *)
 type rule =
@@ -31,6 +34,7 @@ type rule =
     | S_alt of rule * rule (* Alt rules with a / *)
     | S_seq of rule * rule (* Sequence group *)
     | S_repetition of int option * int option * rule (* Repetition *)
+    | S_element_list of int option * int option * rule (* List rule, RFC2068 2.1 *)
     | S_hex_range of int * int
     | S_any_except of rule * rule (* any rule except rule *)
 

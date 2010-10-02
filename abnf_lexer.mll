@@ -15,7 +15,6 @@ let uppercase = ['A'-'Z' '\192'-'\214' '\216'-'\222']
 let string_chars = lowercase | uppercase
 let identifier_chars = string_chars (decimal_literal | string_chars)*
 
-
 rule token = parse
 | [ ' ' '\t' ] { token lexbuf }
 | '\n'* { new_line lexbuf; NEWLINE(next_token lexbuf) }
@@ -30,6 +29,7 @@ rule token = parse
 | '='   { EQUALS(next_token lexbuf) }
 | '/'   { SLASH(next_token lexbuf) }
 | '*'   { STAR(next_token lexbuf) }
+| '#'   { HASH(next_token lexbuf) }
 | '%' 'x' hex_literal { HEXRANGESTART(Lexing.lexeme lexbuf, next_token lexbuf) }
 | '-' hex_literal  { HEXRANGEEND(Lexing.lexeme lexbuf, next_token lexbuf) }
 | "any" { ANY (next_token lexbuf) }

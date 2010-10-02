@@ -9,7 +9,7 @@ module Text = struct
     let string_of_terminal = function
         | ALPHA -> "ALPHA"
         | DIGIT -> "DIGIT"
-        | HEXDIG -> "HEXDIG"
+        | HEXDIGIT -> "HEXDIGIT"
         | DQUOTE -> "DQUOTE"
         | SP -> "SP"
         | LWSP -> "LWSP"
@@ -23,11 +23,14 @@ module Text = struct
         | LF -> "LF"
         | CRLF -> "CRLF"
         | BIT -> "BIT"
+        | TEXT -> "TEXT"
+        | UPALPHA -> "UPALPHA"
+        | LOALPHA -> "LOALPHA"
 
     let terminal_of_string = function
         | "ALPHA" -> Some ALPHA
         | "DIGIT" -> Some DIGIT
-        | "HEXDIG" -> Some HEXDIG
+        | "HEXDIGIT" -> Some HEXDIGIT
         | "DQUOTE" -> Some DQUOTE
         | "SP" -> Some SP
         | "HTAB" -> Some HTAB
@@ -41,6 +44,9 @@ module Text = struct
         | "LF" -> Some LF
         | "CRLF" -> Some CRLF
         | "BIT" -> Some BIT
+        | "TEXT" -> Some TEXT
+        | "UPALPHA" -> Some UPALPHA
+        | "LOALPHA" -> Some LOALPHA
         | _ -> None
     
     let rec string_of_rule = function
@@ -49,17 +55,18 @@ module Text = struct
         | S_concat (rl1,rl2) -> sprintf "%s . %s" (string_of_rule rl1) (string_of_rule rl2)
         | S_alt (rl1,rl2) -> sprintf "%s / %s" (string_of_rule rl1) (string_of_rule rl2)
         | S_seq (rl1,rl2) -> sprintf "(%s %s)" (string_of_rule rl1) (string_of_rule rl2)
-        | S_repetition (min, max, rl) -> string_of_repeat_rule min max rl
+        | S_element_list (min, max, rl) -> string_of_repeat_rule "#" min max rl
+        | S_repetition (min, max, rl) -> string_of_repeat_rule "*" min max rl
         | S_reference r -> sprintf "@%s" r
         | S_any_except (r1,r2) -> sprintf "< any %s except %s >" (string_of_rule r1) (string_of_rule r2)
         | S_hex_range (f,t) -> sprintf "%%x%d-%d" f t
-    and string_of_repeat_rule min max rl =
+    and string_of_repeat_rule op min max rl =
         match min, max with
         |Some 0, Some 1 | None, Some 1-> sprintf "[%s]" (string_of_rule rl)  (* Optional element *)
-        |Some 0, None | None, None -> sprintf "*%s" (string_of_rule rl)
-        |Some min, None -> sprintf "%d*%s" min (string_of_rule rl)
-        |Some 0, Some max | None, Some max -> sprintf "*%d%s" max (string_of_rule rl)
-        |Some min, Some max -> sprintf "%d*%d%s" min max (string_of_rule rl)
+        |Some 0, None | None, None -> sprintf "%s%s" op (string_of_rule rl)
+        |Some min, None -> sprintf "%d%s%s" min op (string_of_rule rl)
+        |Some 0, Some max | None, Some max -> sprintf "%s%d%s" op max (string_of_rule rl)
+        |Some min, Some max -> sprintf "%d%s%d%s" min op max (string_of_rule rl)
 
     let rec sexpr_of_rule = function
         | S_terminal term -> string_of_terminal term
@@ -67,6 +74,8 @@ module Text = struct
         | S_concat (rl1,rl2) -> sprintf "(concat %s %s)" (sexpr_of_rule rl1) (sexpr_of_rule rl2)
         | S_alt (rl1,rl2) -> sprintf "(alt %s %s)" (sexpr_of_rule rl1) (sexpr_of_rule rl2)
         | S_seq (rl1,rl2) -> sprintf "(seq %s %s)" (sexpr_of_rule rl1) (sexpr_of_rule rl2)
+        | S_element_list (min, max, rl) -> sprintf "(list %d %s %s)" (match min with |None -> 0 |Some x -> x)
+            (match max with |None -> "inf" |Some x -> string_of_int x) (sexpr_of_rule rl)
         | S_repetition (min, max, rl) -> sprintf "(rep %d %s %s)" (match min with |None -> 0 |Some x -> x)
             (match max with |None -> "inf" |Some x -> string_of_int x) (sexpr_of_rule rl)
         | S_reference r -> sprintf "(ref %s)" r
@@ -87,6 +96,7 @@ module Text = struct
             | S_concat (rl1, rl2) |S_alt (rl1,rl2) |S_seq(rl1,rl2) 
             | S_any_except(rl1,rl2) -> register_terminal rl1; register_terminal rl2
             | S_string _ | S_hex_range _ | S_reference _ -> ()
+            | S_element_list (_,_,rl) -> register_terminal rl
             | S_repetition (_,_,rl) -> register_terminal rl
             in register_terminal rule
         ) rds;
@@ -139,7 +149,7 @@ module Graph = struct
             | S_concat (rl1,rl2) | S_alt (rl1,rl2)
             | S_seq (rl1,rl2) | S_any_except (rl1,rl2) ->
                 edges_from_rule rl1 @ (edges_from_rule rl2)
-            | S_repetition (_,_,rl) -> edges_from_rule rl 
+            | S_repetition (_,_,rl) | S_element_list (_,_,rl) -> edges_from_rule rl 
             in
             List.iter (fun x -> Hashtbl.add edges x ()) (edges_from_rule rule_def);
         ) h;
@@ -263,18 +273,19 @@ module HTML = struct
         | S_concat (rl1,rl2) -> sprintf "%s <span class=\"operator\">.</span> %s" (html_of_rule rl1) (html_of_rule rl2)
         | S_alt (rl1,rl2) -> sprintf "%s <span class=\"operator\">/</span> %s" (html_of_rule rl1) (html_of_rule rl2)
         | S_seq (rl1,rl2) -> sprintf " <span class=\"operator\">(</span> %s %s <span class=\"operator\">)</span> " (html_of_rule rl1) (html_of_rule rl2)
-        | S_repetition (min, max, rl) -> html_of_repeat_rule min max rl
+        | S_repetition (min, max, rl) -> html_of_repeat_rule "&#35;" min max rl
+        | S_element_list (min, max, rl) -> html_of_repeat_rule "*" min max rl
         | S_reference r -> span_rule r
         | S_any_except (r1,r2) -> sprintf "<span class=\"anyexcept\">&lt;Any %s except %s&gt;</span>" (html_of_rule r1) (html_of_rule r2)
         | S_hex_range (f,t) -> sprintf "<span class=\"hexrange\">%%x%d-%d</span>" f t
 
-    and html_of_repeat_rule min max rl =
+    and html_of_repeat_rule op min max rl =
         match min, max with
         |Some 0, Some 1 | None, Some 1-> sprintf "[ %s ]" (html_of_rule rl)  (* Optional element *)
-        |Some 0, None | None, None -> sprintf "<span class=\"operator\">*</span>%s" (html_of_rule rl)
-        |Some min, None -> sprintf "<span class=\"operator\">%d*</span>%s" min (html_of_rule rl)
-        |Some 0, Some max | None, Some max -> sprintf "<span class=\"operator\">*%d</span>%s" max (html_of_rule rl)
-        |Some min, Some max -> sprintf "<span class=\"operator\">%d*%d</span>%s" min max (html_of_rule rl)
+        |Some 0, None | None, None -> sprintf "<span class=\"operator\">%s</span>%s" op (html_of_rule rl)
+        |Some min, None -> sprintf "<span class=\"operator\">%d%s</span>%s" min op (html_of_rule rl)
+        |Some 0, Some max | None, Some max -> sprintf "<span class=\"operator\">%s%d</span>%s" op max (html_of_rule rl)
+        |Some min, Some max -> sprintf "<span class=\"operator\">%d%s%d</span>%s" min op max (html_of_rule rl)
     
 end
 

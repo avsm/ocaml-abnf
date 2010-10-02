@@ -22,7 +22,7 @@
 %token <string * Abnf_location.t> NUMBER
 %token <string * Abnf_location.t> HEXRANGESTART HEXRANGEEND
 %token <Abnf_location.t> LBRACE RBRACE LBRACKET RBRACKET SLBRACKET SRBRACKET
-%token <Abnf_location.t> EQUALS SLASH STAR LESSTHAN GREATERTHAN ANY EXCEPT
+%token <Abnf_location.t> EQUALS SLASH STAR HASH LESSTHAN GREATERTHAN ANY EXCEPT 
 
 %start main
 %type <Abnf_syntaxtree.rule_definition list> main
@@ -61,10 +61,14 @@ rule_identifier:
 
 rule_repetition:
   | NUMBER STAR NUMBER rule_identifier { Abnf_syntaxtree.S_repetition (Some (dec $1), Some (dec $3), $4) }
+  | NUMBER HASH NUMBER rule_identifier { Abnf_syntaxtree.S_element_list (Some (dec $1), Some (dec $3), $4) }
   | STAR NUMBER rule_identifier { Abnf_syntaxtree.S_repetition (None, Some (dec $2), $3) }
+  | HASH NUMBER rule_identifier { Abnf_syntaxtree.S_element_list (None, Some (dec $2), $3) }
   | NUMBER STAR rule_identifier { Abnf_syntaxtree.S_repetition (Some (dec $1), None, $3) }
+  | NUMBER HASH rule_identifier { Abnf_syntaxtree.S_element_list (Some (dec $1), None, $3) }
   | NUMBER rule_identifier { Abnf_syntaxtree.S_repetition (Some (dec $1), Some (dec $1), $2) }
   | STAR rule_identifier { Abnf_syntaxtree.S_repetition (Some 0, None, $2) }
+  | HASH rule_identifier { Abnf_syntaxtree.S_element_list (Some 0, None, $2) }
   | SLBRACKET rule_definition SRBRACKET { Abnf_syntaxtree.S_repetition (Some 0, Some 1, $2) }
 ;
 

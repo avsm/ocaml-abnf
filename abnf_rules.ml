@@ -29,7 +29,8 @@ let rec check_rule rules_hash rule_name =
     |S_reference r ->
         if not (Hashtbl.mem rules_hash r) then
             raise (Rule_error (sprintf "Unknown reference: %s in rule %s" r rule_name))
-    |S_repetition (min, max, r) -> begin
+    |S_repetition (min, max, r)
+    |S_element_list (min, max, r) -> begin
         cfn r;
         match min, max with
         |Some min, Some max ->

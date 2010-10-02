@@ -30,7 +30,7 @@ let parse_file_with_grammar infile grammar starting_nonterminal = (
     | ALPHA -> (make_int_range (Char.code 'a') (Char.code 'z')) 
 	@ (make_int_range (Char.code 'A') (Char.code 'Z'))
     | DIGIT -> (make_int_range (Char.code '0') (Char.code '9'))
-    | HEXDIG -> (make_int_range (Char.code '0') (Char.code '9')) 
+    | HEXDIGIT -> (make_int_range (Char.code '0') (Char.code '9')) 
 	@ (make_int_range (Char.code 'A') (Char.code 'F')) 
 	@ (make_int_range (Char.code 'a') (Char.code 'f'))
     | DQUOTE -> [Char.code '\"']
