@@ -203,7 +203,6 @@ let to_string rules =
   let env   = make_env rules in
   let decls = Hashtbl.fold (fun name r accu -> decl_of_rd env name r :: accu) rules [] in
   let aux d =
-    eprintf ">>\n%s:\n%s\n" d.name (pp d.t);
     if is_toplevel env d.name then
       string_of_decl d
     else
