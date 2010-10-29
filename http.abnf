@@ -208,3 +208,4 @@ URI-header = "URI" ":" 1#( "<" URI ">" )
 Keep-Alive-header = "Keep-Alive" ":" 0#keepalive-param
 keepalive-param = param-name "=" value
 param-name = *TEXT
+TEXT = <any OCTET except CTL>
