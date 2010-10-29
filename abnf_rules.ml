@@ -24,7 +24,7 @@ let rec check_rule rules_hash rule_name =
     |S_string _ -> ()
     |S_concat (r1, r2) -> cfn r1; cfn r2
     |S_alt (r1, r2) -> cfn r1; cfn r2
-    |S_seq (r1, r2) -> cfn r1; cfn r2
+    |S_bracket r -> cfn r
     |S_any_except (r1, r2) -> cfn r1; cfn r2
     |S_reference r ->
         if not (Hashtbl.mem rules_hash r) then

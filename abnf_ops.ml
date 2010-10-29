@@ -50,9 +50,9 @@ module Text = struct
     let rec string_of_rule = function
         | S_terminal term -> string_of_terminal term
         | S_string str -> sprintf "\"%s\"" str
-        | S_concat (rl1,rl2) -> sprintf "%s . %s" (string_of_rule rl1) (string_of_rule rl2)
+        | S_concat (rl1,rl2) -> sprintf "%s %s" (string_of_rule rl1) (string_of_rule rl2)
         | S_alt (rl1,rl2) -> sprintf "%s / %s" (string_of_rule rl1) (string_of_rule rl2)
-        | S_seq (rl1,rl2) -> sprintf "(%s %s)" (string_of_rule rl1) (string_of_rule rl2)
+        | S_bracket rl -> sprintf "(%s)" (string_of_rule rl)
         | S_element_list (min, max, rl) -> string_of_repeat_rule "#" min max rl
         | S_repetition (min, max, rl) -> string_of_repeat_rule "*" min max rl
         | S_reference r -> sprintf "@%s" r
@@ -71,7 +71,7 @@ module Text = struct
         | S_string str -> sprintf "(string %s)" str
         | S_concat (rl1,rl2) -> sprintf "(concat %s %s)" (sexpr_of_rule rl1) (sexpr_of_rule rl2)
         | S_alt (rl1,rl2) -> sprintf "(alt %s %s)" (sexpr_of_rule rl1) (sexpr_of_rule rl2)
-        | S_seq (rl1,rl2) -> sprintf "(seq %s %s)" (sexpr_of_rule rl1) (sexpr_of_rule rl2)
+        | S_bracket rl -> sprintf "(bracket %s)" (sexpr_of_rule rl)
         | S_element_list (min, max, rl) -> sprintf "(list %d %s %s)" (match min with |None -> 0 |Some x -> x)
             (match max with |None -> "inf" |Some x -> string_of_int x) (sexpr_of_rule rl)
         | S_repetition (min, max, rl) -> sprintf "(rep %d %s %s)" (match min with |None -> 0 |Some x -> x)
@@ -91,9 +91,10 @@ module Text = struct
         Hashtbl.iter (fun _ rule ->
             let rec register_terminal = function
             | S_terminal term -> Hashtbl.replace terms term ()
-            | S_concat (rl1, rl2) |S_alt (rl1,rl2) |S_seq(rl1,rl2) 
+            | S_concat (rl1, rl2) |S_alt (rl1,rl2)
             | S_any_except(rl1,rl2) -> register_terminal rl1; register_terminal rl2
             | S_string _ | S_hex_range _ | S_reference _ -> ()
+            | S_bracket(rl)
             | S_element_list (_,_,rl) -> register_terminal rl
             | S_repetition (_,_,rl) -> register_terminal rl
             in register_terminal rule
@@ -145,8 +146,9 @@ module Graph = struct
                 let to_node = find_node torule in
                 [ { f=from_node; t=to_node } ]
             | S_concat (rl1,rl2) | S_alt (rl1,rl2)
-            | S_seq (rl1,rl2) | S_any_except (rl1,rl2) ->
+            | S_any_except (rl1,rl2) ->
                 edges_from_rule rl1 @ (edges_from_rule rl2)
+            | S_bracket (rl)
             | S_repetition (_,_,rl) | S_element_list (_,_,rl) -> edges_from_rule rl 
             in
             List.iter (fun x -> Hashtbl.add edges x ()) (edges_from_rule rule_def);
@@ -270,7 +272,7 @@ module HTML = struct
         | S_string str -> sprintf "<span class=\"string\">&quot;%s&quot;</span>" str
         | S_concat (rl1,rl2) -> sprintf "%s <span class=\"operator\">.</span> %s" (html_of_rule rl1) (html_of_rule rl2)
         | S_alt (rl1,rl2) -> sprintf "%s <span class=\"operator\">/</span> %s" (html_of_rule rl1) (html_of_rule rl2)
-        | S_seq (rl1,rl2) -> sprintf " <span class=\"operator\">(</span> %s %s <span class=\"operator\">)</span> " (html_of_rule rl1) (html_of_rule rl2)
+        | S_bracket rl -> sprintf " <span class=\"operator\">(</span> %s <span class=\"operator\">)</span> " (html_of_rule rl)
         | S_repetition (min, max, rl) -> html_of_repeat_rule "&#35;" min max rl
         | S_element_list (min, max, rl) -> html_of_repeat_rule "*" min max rl
         | S_reference r -> span_rule r

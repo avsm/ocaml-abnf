@@ -143,7 +143,7 @@ let parse_file_with_grammar infile grammar starting_nonterminal = (
 		      )
 		   )
 		  )
-	      | S_seq (rl1, rl2) -> parse_rule (S_concat (rl1, rl2))
+	      | S_bracket rl -> parse_rule rl
 	      | S_repetition (min, max, rl) ->
 		  D_repetition (parse_repetition min max rl [])
 	      | S_reference r -> eprintf "Expanding %s to %s\n"

@@ -53,8 +53,7 @@ rule_identifier:
 | IDENTIFIER { match Abnf_ops.Text.terminal_of_string (id $1) with 
     |None -> Abnf_syntaxtree.S_reference (id $1) 
     |Some term -> Abnf_syntaxtree.S_terminal term }
-| LBRACKET rule_definition rule_definition RBRACKET { Abnf_syntaxtree.S_seq ($2, $3) }
-| LBRACKET rule_definition RBRACKET { $2 } 
+| LBRACKET rule_definition RBRACKET { Abnf_syntaxtree.S_bracket ($2) }
 | LESSTHAN ANY rule_definition EXCEPT rule_definition GREATERTHAN 
   { Abnf_syntaxtree.S_any_except ($3, $5) }
 ;

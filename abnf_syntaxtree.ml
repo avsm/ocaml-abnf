@@ -31,7 +31,7 @@ type rule =
     | S_concat of rule * rule (* Concatenation of rules *)
     | S_reference of string (* reference to another rule *)
     | S_alt of rule * rule (* Alt rules with a / *)
-    | S_seq of rule * rule (* Sequence group *)
+    | S_bracket of rule (* Brackets : Needed because of the printer *)
     | S_repetition of int option * int option * rule (* Repetition *)
     | S_element_list of int option * int option * rule (* List rule, RFC2068 2.1 *)
     | S_hex_range of int * int
