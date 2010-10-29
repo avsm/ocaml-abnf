@@ -23,7 +23,6 @@ type terminal =
     | LF        (* <US-ASCII LF, linefeed (10)> *)
     | CRLF      (* CR LF *)
     | BIT 
-    | TEXT      (* <any OCTET except CTLs, but including LWS> *)
 
 (* Type of the rules syntax tree *)
 type rule =

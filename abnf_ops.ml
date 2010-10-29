@@ -23,7 +23,6 @@ module Text = struct
         | LF -> "LF"
         | CRLF -> "CRLF"
         | BIT -> "BIT"
-        | TEXT -> "TEXT"
         | UPALPHA -> "UPALPHA"
         | LOALPHA -> "LOALPHA"
 
@@ -44,7 +43,6 @@ module Text = struct
         | "LF" -> Some LF
         | "CRLF" -> Some CRLF
         | "BIT" -> Some BIT
-        | "TEXT" -> Some TEXT
         | "UPALPHA" -> Some UPALPHA
         | "LOALPHA" -> Some LOALPHA
         | _ -> None
