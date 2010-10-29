@@ -12,6 +12,7 @@ type mode =
     |Edges
     |Terminals
     |RDParse
+    |Sig
     
 let _ =
     let files = ref [] in
@@ -20,6 +21,7 @@ let _ =
     let file_to_parse = ref "" in
     let starting_nonterminal = ref "" in 
     let parse = [
+        "-sig", Arg.Unit (fun () -> mode := Sig), "Output the mli file";
         "-dot", Arg.Unit (fun () -> mode := Dot), "Output in DOT format";
         "-tsort", Arg.Unit (fun () -> mode := Tsort), "Output topological sort of parse nodes";
         "-edges", Arg.Unit (fun () -> mode := Edges), "Output edges of parse graph for tsort(1)";
@@ -52,6 +54,7 @@ let _ =
         let all_rules = Abnf_rules.generate_rules rules in
         Abnf_rules.check all_rules;
         begin match !mode with
+        |Sig -> Abnf_signature.dump all_rules;
         |Dot ->
             Abnf_ops.Graph.dump_nodes all_rules;
         |Tsort ->
