@@ -2,7 +2,7 @@ OCAMLMAKEFILE = OCamlMakefile
 
 ANNOTATE = yes
 export ANNOTATE
-LLVM ?= /Users/avsm/llvm
+LLVM ?= /opt/local
 
 define PROJ_abnf
   SOURCES=abnf_syntaxtree.ml abnf_rules.ml abnf_ops.ml abnf_location.ml abnf_parser.mli abnf_lexer.ml abnf_parser.ml abnf_recursive_descent.ml abnf_signature.ml abnf_cmd.ml

@@ -11,6 +11,7 @@ type t =
   | T_string
   | T_constant of string
   | T_var of string
+  | T_mu of string * t
   | T_tuple of t list
   | T_sum of t list
   | T_list of t
@@ -21,36 +22,57 @@ let rec pp = function
   | T_string -> "STRING"
   | T_constant s -> sprintf "CONSTANT(%s)" s
   | T_var s -> sprintf "VAR(%s)" s
+  | T_mu (s, t) -> sprintf "MU(%s, %s)" s (pp t)
   | T_tuple s -> sprintf "TUPLE(%s)" (String.concat ", " (List.map pp s))
   | T_sum s -> sprintf "SUM(%s)" (String.concat ", " (List.map pp s))
   | T_list s -> sprintf "LIST(%s)" (pp s)
   | T_array s -> sprintf "ARRAY(%s)" (pp s)
 
+let is_char = function
+  | T_mu (_, T_char)
+  | T_char -> true
+  | T_constant str when String.length str = 1 -> true
+  | _ -> false
+ 
 let is_constant = function
+  | T_mu (_, T_constant _)
   | T_constant _ -> true
   | _ -> false
 
+let string_of_constant = function
+  | T_mu (_, T_constant u)
+  | T_constant u -> u
+  | _ -> failwith "string_of_constant"
+
 let is_sum = function
+  | T_mu (_, T_sum _)
   | T_sum _ -> true
+  | _ -> false
+
+let is_nice_variant = function
+  | T_tuple ( T_constant u :: _ )
+  | T_tuple ( T_var u :: _ )
+  | T_tuple ( T_mu (u, _) :: _ )
+  | T_constant u
+  | T_mu (u, _)
+  | T_var u -> true
   | _ -> false
 
 let is_nice_sum s =
   let l = ref [] in
   let aux = function
-  | T_tuple ( T_constant u :: _ )
-  | T_tuple ( T_var u :: _ )
-  | T_constant u
-  | T_var u
+  | T_var u | T_mu (u,_)
       when not (List.mem u !l) ->
     l := u :: !l;
     true
-  | _ -> false in
+  | T_var u | T_mu (u,_) -> false
+  | x -> is_nice_variant x in
   List.for_all aux s
 
 let rec fold_left f init t =
   let res = f init t in
   match t with
-    | T_char | T_string | T_constant _ | T_var _ -> res
+    | T_char | T_string | T_constant _ | T_var _ | T_mu _ -> res
     | T_tuple tl | T_sum tl -> List.fold_left f res tl
     | T_list t | T_array t -> f res t
 
@@ -108,33 +130,57 @@ let t_of_terminal = function
   | LWSP
   | CRLF -> T_string
 
-let rec t_of_rule env = function
+let t_of_alt r s = match r,s with
+  | T_sum u, T_sum v when List.for_all is_char u && List.for_all is_char v ->
+    T_char
+  | T_sum u, T_sum v ->
+    T_sum (u @ v)
+
+  | T_sum u, v when List.for_all is_char u && is_char v ->
+    T_char
+  | T_sum u, v ->
+    T_sum (u @ [v])
+
+  | u, T_sum v when is_char u && List.for_all is_char v ->
+    T_char
+  | u, T_sum v ->
+    T_sum (u :: v)
+
+  | u, v when is_char u && is_char v ->
+    T_char
+  | u, v ->
+    T_sum [u; v]
+
+let rec t_of_rule ?root env = function
   | S_terminal t             -> t_of_terminal t
   | S_string s               -> T_constant s
   | S_concat (r,s)           ->
-    (match t_of_rule env r, t_of_rule env s with
+    (match t_of_rule ?root env r, t_of_rule ?root env s with
       | T_tuple u, T_tuple v -> T_tuple (u @ v)
       | T_tuple u, v         -> T_tuple (u @ [v])
       | u        , T_tuple v -> T_tuple (u :: v)
       | u        , v         -> T_tuple [u; v])
   | S_reference str ->
-    if is_toplevel env str then
+    if root = Some str then
       T_var str
-    else
-      t_of_rule env (find_rule env str)
-  | S_alt (r,s)     ->
-    (match t_of_rule env r, t_of_rule env s with
-      | T_sum u, T_sum v     -> T_sum (u @ v)
-      | T_sum u, v           -> T_sum (u @ [v])
-      | u      , T_sum v     -> T_sum (u :: v)
-      | u      , v           -> T_sum [u; v])
-  | S_bracket r              -> t_of_rule env r
+    else if is_toplevel env str then begin
+      let new_env = { env with top = [ str ] } in
+(*      eprintf "REF: %s (%s)\n" str (String.concat ", " new_env.top); *)
+      let t = t_of_rule ~root:str new_env (find_rule env str) in
+      T_mu (str, t)
+    end else begin
+      let new_env = if root <> None then { env with top = str :: env.top } else env in
+(*      eprintf "VAR: %s (%s)\n" str (String.concat ", " new_env.top); *)
+      t_of_rule ?root new_env (find_rule env str)
+    end
+  | S_alt (r,s)              -> t_of_alt (t_of_rule ?root env r) (t_of_rule ?root env s)
+  | S_bracket r              -> t_of_rule ?root env r
   | S_element_list (_,None,r)
-  | S_repetition (_,None,r)  -> T_list (t_of_rule env r)
+  | S_repetition (_,None,r)  -> T_list (t_of_rule ?root env r)
   | S_element_list (_,_,r)
-  | S_repetition (_,_,r)     -> T_array (t_of_rule env r)
+  | S_repetition (_,_,r)     -> T_array (t_of_rule ?root env r)
   | S_hex_range _            -> T_char
-  | S_any_except (r,_)       -> t_of_rule env r
+  | S_any_except (r,_)       -> t_of_rule ?root env r
 
 (* WARNING: This function modifies the environnement *)
 let decl_of_rd env name rule =
@@ -159,21 +205,36 @@ let ocamlify name =
 
 let skip_constant l = List.filter (fun x -> not (is_constant x)) l
 
-let string_of_nice_sum ss s =
-  let aux = function
-    | T_tuple (T_constant u :: v)
-    | T_tuple (T_var u :: v) ->
-      sprintf "'%s of %s\n" (ocamlify u) (String.concat " * " (List.map ss (skip_constant v)))
-    | T_constant u
-    | T_var u ->
-      sprintf "'%s\n" (ocamlify u)
-    | _ ->
-      failwith "string_of_nice_sum is not up-to-date with is_nice_sum" in
-  sprintf "[ %s ]" (String.concat "  | " (List.map aux s))
+let string_of_nice_variant ss = function
+  | T_tuple (T_constant u :: v)
+  | T_tuple (T_mu (u,_) :: v)  ->
+    (match List.map ss (skip_constant v) with
+       | []    -> sprintf "'%s" (ocamlify u)
+       | args  -> sprintf "'%s of %s" (ocamlify u) (String.concat " * " args))
+  | T_constant u ->
+    sprintf "'%s" (ocamlify u)
+  | T_mu (u,t) ->
+    if is_sum t then
+      sprintf "%s" (ocamlify u)
+    else
+      sprintf "'%s of %s" (ocamlify u) (ocamlify u)
+  | _ ->
+    failwith "string_of_nice_sum is not up-to-date with is_nice_sum"
 
+let string_of_nice_sum ss s =
+  sprintf "[ %s ]" (String.concat "  | " (List.map (string_of_nice_variant ss) s))
+
+(* XXX: need to verify that there is no name clashes with variant names *)
 let string_of_ugly_sum ss s =
   let aux (i, l) s =
-    let r = sprintf "`a%i of %s\n" i (ss s) in
+    let r =
+      if is_nice_variant s then
+        string_of_nice_variant ss s
+      else
+        if is_constant s then
+          sprintf "%s\n" (ocamlify (string_of_constant s))
+        else
+          sprintf "`a%i of %s\n" i (pp s) in
     (i+1, r :: l) in
   let _, l = List.fold_left aux (1,[]) s in
   sprintf "[ %s ]" (String.concat "  | " (List.rev l))
@@ -182,7 +243,8 @@ let rec string_of_t = function
   | T_char       -> "char"
   | T_string     -> "string"
   | T_constant _ -> "unit" (* constant are skipped *)
-  | T_var v      -> (ocamlify v)
+  | T_mu (v,_)   -> ocamlify v
+  | T_var v      -> ocamlify v
   | T_list l     -> sprintf "%s list" (string_of_t l)
   | T_array a    -> sprintf "%s array" (string_of_t a)
 
