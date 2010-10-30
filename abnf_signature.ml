@@ -39,6 +39,11 @@ let is_char = function
   | T_char -> true
   | _ -> false
  
+let is_string = function
+  | T_mu (_, T_string)
+  | T_string -> true
+  | s -> is_char s
+
 let is_constant = function
   | T_mu (_, T_constant _)
   | T_constant _ -> true
@@ -147,21 +152,29 @@ let t_of_terminal = function
 let t_of_alt r s = match r,s with
   | T_sum u, T_sum v when List.for_all is_char u && List.for_all is_char v ->
     T_char
+  | T_sum u, T_sum v when List.for_all is_string  u && List.for_all is_string v ->
+    T_string
   | T_sum u, T_sum v ->
     T_sum (u @ v)
 
   | T_sum u, v when List.for_all is_char u && is_char v ->
     T_char
+  | T_sum u, v when List.for_all is_string u && is_string v ->
+    T_string
   | T_sum u, v ->
     T_sum (u @ [v])
 
   | u, T_sum v when is_char u && List.for_all is_char v ->
     T_char
+  | u, T_sum v when is_string u && List.for_all is_string v ->
+    T_string
   | u, T_sum v ->
     T_sum (u :: v)
 
   | u, v when is_char u && is_char v ->
     T_char
+  | u, v when is_string u && is_string v ->
+    T_string
   | u, v ->
     T_sum [u; v]
 
