@@ -35,7 +35,6 @@ let rec pp = function
 let is_char = function
   | T_mu (_, T_char)
   | T_char -> true
-  | T_constant str when String.length str = 1 -> true
   | _ -> false
  
 let is_constant = function
@@ -158,7 +157,11 @@ let t_of_alt r s = match r,s with
 
 let rec t_of_rule ?root env = function
   | S_terminal t             -> t_of_terminal t
-  | S_string s               -> T_constant s
+  | S_string s               ->
+    if String.length s = 1 then
+      T_char
+    else
+      T_constant s
   | S_concat (r,s)           ->
     (match t_of_rule ?root env r, t_of_rule ?root env s with
       | T_tuple u, T_tuple v -> T_tuple (u @ v)
