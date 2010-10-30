@@ -7,6 +7,7 @@ open Abnf_syntaxtree
 open Printf
 
 type t =
+  | T_sep
   | T_char
   | T_string
   | T_constant of string
@@ -21,6 +22,7 @@ type t =
   | T_option of t
 
 let rec pp = function
+  | T_sep -> "SEP"
   | T_char -> "CHAR"
   | T_string -> "STRING"
   | T_constant s -> sprintf "CONSTANT(%s)" s
@@ -33,6 +35,11 @@ let rec pp = function
   | T_int i -> sprintf "INT(%d)" i
   | T_bigint -> "BIGINT"
   | T_option t -> sprintf "OPTION(%s)" (pp t)
+
+let is_sep = function
+  | T_mu (_, T_sep)
+  | T_sep -> true
+  | _ -> false
 
 let is_char = function
   | T_mu (_, T_char)
@@ -48,6 +55,9 @@ let is_constant = function
   | T_mu (_, T_constant _)
   | T_constant _ -> true
   | _ -> false
+
+let cleanup l =
+  List.filter (fun x -> not (is_constant x || is_sep x)) l
 
 let string_of_constant = function
   | T_mu (_, T_constant u)
@@ -88,6 +98,7 @@ let is_well_formed_sum s =
 let rec fold_left f init t =
   let res = f init t in
   match t with
+    | T_sep
     | T_char
     | T_string
     | T_constant _
@@ -149,9 +160,9 @@ let t_of_terminal = function
   | LF
   | OCTET
   | SP
-  | VCHAR
-  | WSP   -> T_char
-  | LWSP
+  | VCHAR -> T_char
+  | WSP
+  | LWSP  -> T_sep
   | CRLF  -> T_string
   | DIGIT -> T_int 1
 
@@ -184,24 +195,42 @@ let t_of_alt r s = match r,s with
   | u, v ->
     T_sum [u; v]
 
+let t_of_concat r s = match r,s with
+  | T_tuple u, T_tuple v -> T_tuple (u @ v)
+
+  | T_tuple u, v         -> T_tuple (u @ [v])
+
+  | u        , T_tuple v -> T_tuple (u :: v)
+
+  | T_char   , T_char
+  | T_char   , T_string
+  | T_string , T_char
+  | T_string , T_string  -> T_string
+
+  | T_sep    , T_sep     -> T_sep
+
+  | T_int i  , T_int j   -> T_int (i + j)
+
+  | T_bigint , T_int _
+  | T_bigint , T_bigint
+  | T_int _  , T_bigint  -> T_bigint
+
+  | T_list x , T_list y
+  | x        , T_list y
+  | T_list x , y when x=y-> T_list x
+  | T_list x , T_sep
+  | T_sep    , T_list x  -> T_list x
+
+  | u        , v         -> T_tuple [u; v]
+
 let rec t_of_rule ?root env = function
   | S_terminal t             -> t_of_terminal t
 
   | S_string s               ->
-    if String.length s = 1 then
-      T_char
-    else
-      T_constant s
+    T_constant s
 
   | S_concat (r,s)           ->
-    (match t_of_rule ?root env r, t_of_rule ?root env s with
-      | T_tuple u, T_tuple v -> T_tuple (u @ v)
-      | T_tuple u, v         -> T_tuple (u @ [v])
-      | u        , T_tuple v -> T_tuple (u :: v)
-      | T_char   , T_char
-      | T_char   , T_string
-      | T_string , T_char    -> T_string
-      | u        , v         -> T_tuple [u; v])
+    t_of_concat (t_of_rule ?root env r) (t_of_rule ?root env s)
 
   | S_reference str ->
     if root = Some str then
@@ -225,6 +254,7 @@ let rec t_of_rule ?root env = function
   | S_repetition (_,None,r)  ->
     (match t_of_rule ?root env r with
        | T_char   -> T_string
+       | T_string -> T_string
        | T_int _
        | T_bigint -> T_bigint
        | t        -> T_list t)
@@ -271,12 +301,10 @@ let ocamlify name =
   done;
   name
 
-let skip_constant l = List.filter (fun x -> not (is_constant x)) l
-
 let string_of_nice_variant ss = function
   | T_tuple (T_constant u :: v)
   | T_tuple (T_mu (u,_) :: v)  ->
-    (match List.map ss (skip_constant v) with
+    (match List.map ss (cleanup v) with
        | []    -> sprintf "'%s" (ocamlify u)
        | args  -> sprintf "'%s of %s" (ocamlify u) (String.concat " * " args))
   | T_constant u ->
@@ -308,9 +336,10 @@ let (<<=) i k =
   10. ** (float i) <= 2. ** (float k)
 
 let rec string_of_t = function
+  | T_sep        -> "unit"
   | T_char       -> "char"
   | T_string     -> "string"
-  | T_constant _ -> "unit" (* constant are skipped *)
+  | T_constant _ -> "unit"
   | T_mu (v,_)   -> ocamlify v
   | T_var v      -> ocamlify v
   | T_list l     -> sprintf "%s list" (string_of_t l)
@@ -318,16 +347,14 @@ let rec string_of_t = function
   | T_option o   -> sprintf "%s option" (string_of_t o)
 
   | T_int i when i <<= 31 -> "int"
-  | T_int i when i <<= 32  -> "int32"
+  | T_int i when i <<= 32 -> "int32"
   | T_int i when i <<= 64 -> "int64"
   | T_int _ | T_bigint    -> "Bigint.t"
 
-  | T_tuple t    ->
+  | T_tuple [t] -> sprintf "%s" (string_of_t t)
+  | T_tuple t   ->
     (* XXX: here we can do better in some cases, ie. create a record if the names are meanigful *)
-    (match skip_constant t with
-       | []  -> sprintf ""
-       | [t] -> sprintf "%s" (string_of_t t)
-       | l   -> sprintf "(%s)" (String.concat " * " (List.map string_of_t l)))
+    sprintf "(%s)" (String.concat " * " (List.map string_of_t (cleanup t)))
 
   | T_sum s ->
     string_of_sum string_of_t s
