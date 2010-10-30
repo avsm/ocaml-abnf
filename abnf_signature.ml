@@ -280,11 +280,14 @@ let rec string_of_t = function
   | T_int i when i <<= 31 -> "int"
   | T_int i when i <<= 32  -> "int32"
   | T_int i when i <<= 64 -> "int64"
-  | T_int _ | T_bigint   -> "Bigint.t"
+  | T_int _ | T_bigint    -> "Bigint.t"
 
   | T_tuple t    ->
     (* XXX: here we can do better in some cases, ie. create a record if the names are meanigful *)
-    sprintf "(%s)" (String.concat " * " (List.map string_of_t (skip_constant t)))
+    (match skip_constant t with
+       | []  -> sprintf ""
+       | [t] -> sprintf "%s" (string_of_t t)
+       | l   -> sprintf "(%s)" (String.concat " * " (List.map string_of_t l)))
 
   | T_sum s when is_nice_sum s ->
     string_of_nice_sum string_of_t s
