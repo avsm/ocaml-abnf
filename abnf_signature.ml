@@ -60,23 +60,29 @@ let is_sum = function
   | _ -> false
 
 let is_nice_variant = function
-  | T_tuple ( T_constant u :: _ )
-  | T_tuple ( T_var u :: _ )
-  | T_tuple ( T_mu (u, _) :: _ )
-  | T_constant u
-  | T_mu (u, _)
-  | T_var u -> true
-  | _ -> false
+  | T_mu (u, _) -> true
+  | T_tuple ( t :: _ )
+  | t -> is_constant t
 
-let is_nice_sum s =
+let get_variant_constr = function
+  | T_mu (u, _) -> u
+  | T_tuple ( t :: _ )
+  | t -> string_of_constant t 
+
+let is_well_formed_sum s =
   let l = ref [] in
-  let aux = function
-  | T_var u | T_mu (u,_)
-      when not (List.mem u !l) ->
-    l := u :: !l;
-    true
-  | T_var u | T_mu (u,_) -> false
-  | x -> is_nice_variant x in
+  let aux t =
+    if is_nice_variant t then begin
+      let u = get_variant_constr t in
+      eprintf "WF: %s // %s\n" u (String.concat "." !l);
+      if not (List.mem u !l) then begin
+        l := u :: !l;
+        true
+      end else begin
+        false
+      end
+    end else
+      true in
   List.for_all aux s
 
 let rec fold_left f init t =
@@ -144,9 +150,9 @@ let t_of_terminal = function
   | OCTET
   | SP
   | VCHAR
-  | WSP  -> T_char
+  | WSP   -> T_char
   | LWSP
-  | CRLF -> T_string
+  | CRLF  -> T_string
   | DIGIT -> T_int 1
 
 let t_of_alt r s = match r,s with
@@ -283,20 +289,17 @@ let string_of_nice_variant ss = function
   | _ ->
     failwith "string_of_nice_sum is not up-to-date with is_nice_sum"
 
-let string_of_nice_sum ss s =
-  sprintf "[ %s ]" (String.concat "  | " (List.map (string_of_nice_variant ss) s))
-
-(* XXX: need to verify that there is no name clashes with variant names *)
-let string_of_ugly_sum ss s =
-  let aux (i, l) s =
+let string_of_sum ss s =
+  let wf = is_well_formed_sum s in
+  let aux (i, l) t =
     let r =
-      if is_nice_variant s then
-        string_of_nice_variant ss s
+      if wf && is_nice_variant t then
+        string_of_nice_variant ss t
       else
-        if is_constant s then
-          sprintf "%s" (ocamlify (string_of_constant s))
+        if is_constant t then
+          sprintf "%s" (ocamlify (string_of_constant t))
         else
-          sprintf "`a%i of %s" i (ss s) in
+          sprintf "`a%i of %s" i (ss t) in
     (i+1, r :: l) in
   let _, l = List.fold_left aux (1,[]) s in
   sprintf "[ %s ]" (String.concat "  | " (List.rev l))
@@ -326,11 +329,8 @@ let rec string_of_t = function
        | [t] -> sprintf "%s" (string_of_t t)
        | l   -> sprintf "(%s)" (String.concat " * " (List.map string_of_t l)))
 
-  | T_sum s when is_nice_sum s ->
-    string_of_nice_sum string_of_t s
-
   | T_sum s ->
-    string_of_ugly_sum string_of_t s
+    string_of_sum string_of_t s
 
 let string_of_decl d =
   Printf.sprintf "%s = %s" (ocamlify d.name) (string_of_t d.t)
