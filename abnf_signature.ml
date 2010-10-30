@@ -176,11 +176,20 @@ let rec t_of_rule ?root env = function
   | S_alt (r,s)              -> t_of_alt (t_of_rule ?root env r) (t_of_rule ?root env s)
   | S_bracket r              -> t_of_rule ?root env r
   | S_element_list (_,None,r)
-  | S_repetition (_,None,r)  -> T_list (t_of_rule ?root env r)
+  | S_repetition (_,None,r)  ->
+    (match t_of_rule ?root env r with
+       | T_char -> T_string
+       | t      -> T_list t)
   | S_element_list (_,_,r)
-  | S_repetition (_,_,r)     -> T_array (t_of_rule ?root env r)
+  | S_repetition (_,_,r)     ->
+    (match t_of_rule ?root env r with
+       | T_char -> T_string
+       | t      -> T_array t)
   | S_hex_range _            -> T_char
-  | S_any_except (r,_)       -> t_of_rule ?root env r
+  | S_any_except (r,_)       ->
+    (match t_of_rule ?root env r with
+       | T_char -> T_string
+       | t      -> T_list t)
 
 (* WARNING: This function modifies the environnement *)
 let decl_of_rd env name rule =
