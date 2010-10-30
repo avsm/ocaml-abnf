@@ -258,9 +258,9 @@ let string_of_ugly_sum ss s =
         string_of_nice_variant ss s
       else
         if is_constant s then
-          sprintf "%s\n" (ocamlify (string_of_constant s))
+          sprintf "%s" (ocamlify (string_of_constant s))
         else
-          sprintf "`a%i of %s\n" i (ss s) in
+          sprintf "`a%i of %s" i (ss s) in
     (i+1, r :: l) in
   let _, l = List.fold_left aux (1,[]) s in
   sprintf "[ %s ]" (String.concat "  | " (List.rev l))
