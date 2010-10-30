@@ -18,6 +18,7 @@ type t =
   | T_array of t
   | T_int of int (* size of the integer *)
   | T_bigint
+  | T_option of t
 
 let rec pp = function
   | T_char -> "CHAR"
@@ -31,6 +32,7 @@ let rec pp = function
   | T_array s -> sprintf "ARRAY(%s)" (pp s)
   | T_int i -> sprintf "INT(%d)" i
   | T_bigint -> "BIGINT"
+  | T_option t -> sprintf "OPTION(%s)" (pp t)
 
 let is_char = function
   | T_mu (_, T_char)
@@ -75,10 +77,18 @@ let is_nice_sum s =
 let rec fold_left f init t =
   let res = f init t in
   match t with
-    | T_char | T_string | T_constant _ | T_var _ | T_mu _ 
-    | T_int _ | T_bigint    -> res
-    | T_tuple tl | T_sum tl -> List.fold_left f res tl
-    | T_list t | T_array t  -> f res t
+    | T_char
+    | T_string
+    | T_constant _
+    | T_var _
+    | T_mu _ 
+    | T_int _
+    | T_bigint   -> res
+    | T_tuple tl
+    | T_sum tl   -> List.fold_left f res tl
+    | T_list t
+    | T_array t
+    | T_option t -> f res t
 
 let exists f t =
   fold_left (fun accu t -> accu || f t) false t
@@ -157,11 +167,13 @@ let t_of_alt r s = match r,s with
 
 let rec t_of_rule ?root env = function
   | S_terminal t             -> t_of_terminal t
+
   | S_string s               ->
     if String.length s = 1 then
       T_char
     else
       T_constant s
+
   | S_concat (r,s)           ->
     (match t_of_rule ?root env r, t_of_rule ?root env s with
       | T_tuple u, T_tuple v -> T_tuple (u @ v)
@@ -171,6 +183,7 @@ let rec t_of_rule ?root env = function
       | T_char   , T_string
       | T_string , T_char    -> T_string
       | u        , v         -> T_tuple [u; v])
+
   | S_reference str ->
     if root = Some str then
       T_var str
@@ -184,8 +197,11 @@ let rec t_of_rule ?root env = function
 (*      eprintf "VAR: %s (%s)\n" str (String.concat ", " new_env.top); *)
       t_of_rule ?root new_env (find_rule env str)
     end
+
   | S_alt (r,s)              -> t_of_alt (t_of_rule ?root env r) (t_of_rule ?root env s)
+
   | S_bracket r              -> t_of_rule ?root env r
+
   | S_element_list (_,None,r)
   | S_repetition (_,None,r)  ->
     (match t_of_rule ?root env r with
@@ -193,6 +209,11 @@ let rec t_of_rule ?root env = function
        | T_int _
        | T_bigint -> T_bigint
        | t        -> T_list t)
+
+  | S_element_list (Some 0,Some 1,r)
+  | S_repetition (Some 0,Some 1,r) ->
+    T_option (t_of_rule ?root env r)
+
   | S_element_list (_,Some k,r)
   | S_repetition(_,Some k,r) ->
     (match t_of_rule ?root env r with
@@ -200,7 +221,9 @@ let rec t_of_rule ?root env = function
        | T_int i  -> T_int (i+k)
        | T_bigint -> T_bigint
        | t        -> T_array t)
+
   | S_hex_range _            -> T_char
+
   | S_any_except (r,_)       ->
     (match t_of_rule ?root env r with
        | T_char   -> T_string
@@ -276,6 +299,7 @@ let rec string_of_t = function
   | T_var v      -> ocamlify v
   | T_list l     -> sprintf "%s list" (string_of_t l)
   | T_array a    -> sprintf "%s array" (string_of_t a)
+  | T_option o   -> sprintf "%s option" (string_of_t o)
 
   | T_int i when i <<= 31 -> "int"
   | T_int i when i <<= 32  -> "int32"
