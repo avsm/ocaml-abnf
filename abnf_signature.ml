@@ -159,6 +159,9 @@ let rec t_of_rule ?root env = function
       | T_tuple u, T_tuple v -> T_tuple (u @ v)
       | T_tuple u, v         -> T_tuple (u @ [v])
       | u        , T_tuple v -> T_tuple (u :: v)
+      | T_char   , T_char
+      | T_char   , T_string
+      | T_string , T_char    -> T_string
       | u        , v         -> T_tuple [u; v])
   | S_reference str ->
     if root = Some str then
