@@ -16,6 +16,8 @@ type t =
   | T_sum of t list
   | T_list of t
   | T_array of t
+  | T_int of int (* size of the integer *)
+  | T_bigint
 
 let rec pp = function
   | T_char -> "CHAR"
@@ -27,6 +29,8 @@ let rec pp = function
   | T_sum s -> sprintf "SUM(%s)" (String.concat ", " (List.map pp s))
   | T_list s -> sprintf "LIST(%s)" (pp s)
   | T_array s -> sprintf "ARRAY(%s)" (pp s)
+  | T_int i -> sprintf "INT(%d)" i
+  | T_bigint -> "BIGINT"
 
 let is_char = function
   | T_mu (_, T_char)
@@ -72,9 +76,10 @@ let is_nice_sum s =
 let rec fold_left f init t =
   let res = f init t in
   match t with
-    | T_char | T_string | T_constant _ | T_var _ | T_mu _ -> res
+    | T_char | T_string | T_constant _ | T_var _ | T_mu _ 
+    | T_int _ | T_bigint    -> res
     | T_tuple tl | T_sum tl -> List.fold_left f res tl
-    | T_list t | T_array t -> f res t
+    | T_list t | T_array t  -> f res t
 
 let exists f t =
   fold_left (fun accu t -> accu || f t) false t
@@ -118,7 +123,6 @@ let t_of_terminal = function
   | CHAR
   | CR
   | CTL
-  | DIGIT
   | DQUOTE
   | HEXDIGIT
   | HTAB
@@ -129,6 +133,7 @@ let t_of_terminal = function
   | WSP  -> T_char
   | LWSP
   | CRLF -> T_string
+  | DIGIT -> T_int 1
 
 let t_of_alt r s = match r,s with
   | T_sum u, T_sum v when List.for_all is_char u && List.for_all is_char v ->
@@ -181,18 +186,24 @@ let rec t_of_rule ?root env = function
   | S_element_list (_,None,r)
   | S_repetition (_,None,r)  ->
     (match t_of_rule ?root env r with
-       | T_char -> T_string
-       | t      -> T_list t)
-  | S_element_list (_,_,r)
-  | S_repetition (_,_,r)     ->
+       | T_char   -> T_string
+       | T_int _
+       | T_bigint -> T_bigint
+       | t        -> T_list t)
+  | S_element_list (_,Some k,r)
+  | S_repetition(_,Some k,r) ->
     (match t_of_rule ?root env r with
-       | T_char -> T_string
-       | t      -> T_array t)
+       | T_char   -> T_string
+       | T_int i  -> T_int (i+k)
+       | T_bigint -> T_bigint
+       | t        -> T_array t)
   | S_hex_range _            -> T_char
   | S_any_except (r,_)       ->
     (match t_of_rule ?root env r with
-       | T_char -> T_string
-       | t      -> T_list t)
+       | T_char   -> T_string
+       | T_int _
+       | T_bigint -> T_bigint
+       | t        -> T_list t)
 
 (* WARNING: This function modifies the environnement *)
 let decl_of_rd env name rule =
@@ -251,6 +262,9 @@ let string_of_ugly_sum ss s =
   let _, l = List.fold_left aux (1,[]) s in
   sprintf "[ %s ]" (String.concat "  | " (List.rev l))
 
+let (<<=) i k =
+  10. ** (float i) <= 2. ** (float k)
+
 let rec string_of_t = function
   | T_char       -> "char"
   | T_string     -> "string"
@@ -259,6 +273,11 @@ let rec string_of_t = function
   | T_var v      -> ocamlify v
   | T_list l     -> sprintf "%s list" (string_of_t l)
   | T_array a    -> sprintf "%s array" (string_of_t a)
+
+  | T_int i when i <<= 31 -> "int"
+  | T_int i when i <<= 32  -> "int32"
+  | T_int i when i <<= 64 -> "int64"
+  | T_int _ | T_bigint   -> "Bigint.t"
 
   | T_tuple t    ->
     (* XXX: here we can do better in some cases, ie. create a record if the names are meanigful *)
