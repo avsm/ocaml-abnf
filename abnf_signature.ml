@@ -74,7 +74,7 @@ let is_well_formed_sum s =
   let aux t =
     if is_nice_variant t then begin
       let u = get_variant_constr t in
-      eprintf "WF: %s // %s\n" u (String.concat "." !l);
+(*      eprintf "WF: %s // %s\n" u (String.concat "." !l); *)
       if not (List.mem u !l) then begin
         l := u :: !l;
         true
