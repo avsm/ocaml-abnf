@@ -28,7 +28,7 @@ endef
 export PROJ_llvm
  
 ifndef SUBPROJS
-  export SUBPROJS=abnf imapd llvm
+  export SUBPROJS=abnf imapd
 endif
 
 all: dc
